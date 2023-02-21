@@ -1,7 +1,7 @@
 # ---------
 
 source("helper.R", local = T)
-#print("server.R" %++% " Start")
+
 # Define server logic required for calculation
 server <- function(input, output, session) {
   # Input validation --------------------------------------------------------
