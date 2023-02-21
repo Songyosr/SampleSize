@@ -15,7 +15,7 @@ The SampleSizer app includes the following features:
 
 ## Installation
 
-You can run the SampleSizer app locally by cloning this repository and running the `server.R` or `ui.R` file in RStudio. Alternatively, you can access the app online at [https://songyosr.shinyapps.io/samplesizer/](https://songyosr.shinyapps.io/samplesizer/).
+You can run the SampleSizer app locally by cloning this repository and running the `server.R` or `ui.R` file in RStudio. Alternatively, you can access the app online at [https://songyosr.shinyapps.io/Sample_Size/](https://songyosr.shinyapps.io/Sample_Size/).
 
 ## Usage
 
