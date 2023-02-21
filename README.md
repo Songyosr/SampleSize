@@ -11,6 +11,8 @@ The SampleSizer app includes the following features:
 - Support sample size calculation for multiple scenarios 
 - Customizable color and x-axis variables for data visualization
 
+![SampleSizer in action](fig/example_v0.1.0-alpha.gif)
+
 ## Installation
 
 You can run the SampleSizer app locally by cloning this repository and running the `server.R` or `ui.R` file in RStudio. Alternatively, you can access the app online at [https://songyosr.shinyapps.io/samplesizer/](https://songyosr.shinyapps.io/samplesizer/).

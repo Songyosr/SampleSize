@@ -156,8 +156,8 @@ ui <- fluidPage(
   fluidRow(
     style = "text-align: center; color: grey;",
     HTML(paste0(
-      "SampleSizer: because size matters (lmao) v0.0.04 (230220) - learning how to code shiny edition (very buggy!) | Created by ",
-      a("Songyos Rajborirug (Tony)", href = "srajbor1@jh.edu")
+      "SampleSizer: because (Sample) size matters v0.1.0-alpha - learning how to code edition (very buggy!) | Created by ",
+      a("Songyos Rajborirug (Tony)", href = "https://github.com/Songyosr")
     ))
   )
 )
