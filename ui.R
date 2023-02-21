@@ -22,7 +22,13 @@ ui <- fluidPage(
       ),
 
       # Radio buttons for intervention input method
-      uiOutput("method_input"),
+      radioButtons("method",
+                   label = "Select Comparison method:",
+                   choices = c("Group 2 info" = "direct", 
+                               "Differences (Gr.1 - Gr.2)" = "absolute", 
+                               "Ratio (Gr.1 / Gr.2)" = "relative"),
+                   selected = "direct"
+      ), 
       hr(),
       # Matrix inputs
       matrixInput("matrix_e",
@@ -156,7 +162,7 @@ ui <- fluidPage(
   fluidRow(
     style = "text-align: center; color: grey;",
     HTML(paste0(
-      "SampleSizer: because (Sample) size matters v0.1.0-alpha - learning how to code edition (very buggy!) | Created by ",
+      "SampleSizer: because (Sample) size matters v0.1.2-alpha - learning how to code edition (very buggy!) <br> Update: ",Sys.Date()," | Created by ",
       a("Songyos Rajborirug (Tony)", href = "https://github.com/Songyosr")
     ))
   )

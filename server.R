@@ -10,19 +10,43 @@ server <- function(input, output, session) {
   # Global validator
   iv <- InputValidator$new()
   # Conditional validator
+  
+  # Mean 
   iv_m <- InputValidator$new()
   iv_m$condition(~ (input$outcome == "Mean"))
+  iv$add_validator(iv_m)
   
+  # proportion
+  #iv_p <- InputValidator$new()
+  #iv_p$condition(~ (input$outcome == "Proportion"))
+  #iv$add_validator(iv_p) # Nested
+  
+  
+  
+  # Relative method 
   iv_mt_rel <- InputValidator$new()
   iv_mt_rel$condition(~ (input$method == "relative"))
+  
+  # Cluster design
+  iv_cluster <- InputValidator$new()
+  iv_cluster_hetero <- InputValidator$new()
+  
+  iv_cluster$condition(~ (input$cluster))
+  iv_cluster_hetero$condition(~ (input$cv_type == "separate"))
+  
+  iv_cluster$add_validator(iv_cluster_hetero)
   # iv_p$condition(~ (input$outcome == "Proportion"))
-  # iv_in$condition(~ (input$outcome == "Incidence Rate"))
+
 
   ## Validator Rules ---------------------------------------------------------
 
   # Expected Matrix
-  iv$add_rule("matrix_e", sv_required())
-  iv$add_rule("matrix_e", sv_numeric(allow_multiple = TRUE))
+  iv$add_rule("matrix_e", compose_rules(sv_required(),
+                                        sv_numeric(allow_multiple = TRUE)
+                                        )
+              )
+  #iv_p$add_rule("matrix_e", sv_between(0,1))
+  #iv$add_rule("matrix_e", )
   # iv_mt_rel$add_rule("matrix_e", function(value) {
   #   Ei <- value[1,2]
   #   if (Ei < 0 || is.na(Ei)) {
@@ -31,27 +55,42 @@ server <- function(input, output, session) {
   # })
 
   # SD matrix
-  iv_m$add_rule("matrix_sd", sv_required())
-  iv_m$add_rule("matrix_sd", sv_numeric(allow_multiple = TRUE))
-  iv_m$add_rule("matrix_sd", sv_between(0, Inf))
+  iv_m$add_rule("matrix_sd", compose_rules(sv_required(),
+                                           sv_numeric(allow_multiple = TRUE),
+                                           sv_gte(0, allow_multiple = TRUE))
+                )
+  #iv_m$add_rule("matrix_sd", sv_numeric(allow_multiple = TRUE))
+  #iv_m$add_rule("matrix_sd", sv_between(0, Inf))
+  
+  # Cluster blobs
+  iv_cluster_hetero$add_rule("CVi", sv_gte(0))
+  iv_cluster$add_rule("CVc", sv_gte(0))
+  iv_cluster$add_rule("cluster_size", compose_rules(sv_integer(), sv_gte(0)))
 
   ## Enabling the validators ---------------------------------------------------
 
   iv$enable() # Global
-  iv_m$enable() # under 'mean'
-  iv_mt_rel$enable() # under 'mean'
+  #iv_m$enable() # under 'mean'
+  #iv_mt_rel$enable() # under 'Relative'
+  iv_cluster$enable() # under 'Relative'
+  # More to come
 
-  # Static obj. declaration ----------------------------------------------------
+  # Data storage declaration ---------------------------------------------------
 
+  ## Stationary Variables -----
   # Comparison method dictionary
   method_labels <- c(
     "direct" = "(Gr.2)",
     "absolute" = "Difference",
     "relative" = "Ratio"
   )
-  # Reactive Part declaration ------------------------------------------------------
 
-  ## Variables ---------------------------------------------------------------
+  ## Reactive Variables ------
+
+  # Indicator for debugging mode
+  .i <- reactiveVal(F)
+
+  # Central data storage
   shared_val <- reactiveValues(
     # Choices for X and Color aesthetic selection
     labels = c(
@@ -65,90 +104,99 @@ server <- function(input, output, session) {
       "Significance Level" = "alpha",
       "Power" = "power"
     ),
-
     # Baseline wording for sample size
     sample_label = c("Sample Size (n)" = "c"),
-    #check = F,
     # Value for focus val
-    focus_val = 0 
+    focus_val = 0
   )
 
-  # Indicator for debugging mode
-  .i <- reactiveVal(F)
-  
-  
 
-  ## Functions ----------------------------------------------------------------
 
-  ### Update Sample Size labels -------
-  # updates the sample label based on the value of the "cluster" input.
-  updateSampleLabel <- reactive({
-    # Print a debugging message to the console
-    check_point(.i(), "\nupdateSampleLabel: Checking..")
+  # Reactive Functions ---------------------------------------------------------
 
-    # If the 'cluster' checkbox is checked, update the sample label to reflect that we're calculating the number of clusters per arm
-    if (input$cluster == T) {
-      shared_val$sample_label <- c("Number of Clusters (per arm)" = "c")
+  ## Debugging mode activation ------
+  # Activate/deactivate the debugging mode status based on the 'check' input
+  observeEvent(input$check, .i(input$check))
+
+  ## UI updating group ---------------------------------------------------------
+
+  ### Update [method] choices -----
+  # Define an observe function to update the 'method' radio button choices when the outcome changes
+  observeEvent(input$outcome, {
+    # Checkpoint before making changes
+    check_point(.i(), "updateMethodChoice", 1, 2)
+
+    # Update choices for the radio button based on selected outcome
+    if (input$outcome == "Mean") {
+      updateRadioButtons(session, "method",
+        choices = c(
+          "Group 2 info" = "direct",
+          "Differences (Gr.1 - Gr.2)" = "absolute"
+        ),
+        selected = "direct"
+      )
     } else {
-      # Otherwise, update the sample label to reflect that we're calculating the sample size per arm
-      shared_val$sample_label <- c("Sample Size (per arm)" = "c")
+      updateRadioButtons(session, "method",
+        choices = c(
+          "Group 2 info" = "direct",
+          "Differences (Gr.1 - Gr.2)" = "absolute",
+          "Ratio (Gr.1 / Gr.2)" = "relative"
+        ),
+        selected = "direct"
+      )
     }
 
-    # Print a debugging message to the console indicating that the update is complete
+    # Checkpoint after making changes
     check_point(.i())
   })
-  # Observe and implement
-  observeEvent(input$cluster, updateSampleLabel())
-  
-  
-  ### Update Expected value Labels -----
-  # Update labels based on input$outcome and input$method
+
+  ### Cascading updates: Update expected value labels, matrix column names, and display choices ----
+  #### Update expected values label [Ei, Ec] ----
+  # Reactive function to update labels based on input$outcome and input$method
   updateExpectedValuesLabel <- reactive({
-    #.i <- shared_val$check
+    # Checkpoint before making changes
     check_point(.i(), "\nUpdate Expected value Labels Reactive function: ..")
-    # print(shared_val$labels)
+
+    # Get input values
     outcome <- input$outcome
     method <- method_labels[input$method]
     labels <- shared_val$labels
 
+    # Update the labels
     names(labels)[1:2] <- c(
       paste(outcome, "(Gr.1)"),
       paste(outcome, method)
     )
 
+    # Save the updated labels
     shared_val$labels <- labels
 
+    # Checkpoint after making changes
     check_point(.i())
   })
 
-  ### Update Matrix column name -----
+  #### Update matrix column name ----
   # Reactive function to update matrix column names
   updateMatrixColNames <- reactive({
-    # Get current check point index
     # Get input values
     matrix_e <- input$matrix_e
-    #.i <- shared_val$check
 
     # Check current status of the function
     check_point(.i(), "\nupdateMatrixColNames: Checking..")
 
     # Update column names
-    # print("internal: Matrix")
-    # print(coln)
     colnames(matrix_e) <- names(shared_val$labels[1:2])
 
+    # Update the matrix
     updateMatrixInput(session, "matrix_e",
       value = matrix_e
     )
     check_point(.i())
   })
 
-  ### Update Choice for aesthetic X and color ----
-  # Reactive function to update the display choices
+  #### Update choice for aesthetic X and color ----
+  # Reactive function to update display choices
   updateDisplayChoices <- reactive({
-    # Get current check point index
-
-
     # Check current status of the function
     check_point(.i(), "\nupdateDisplayChoices reactive function: Checking..")
 
@@ -180,28 +228,43 @@ server <- function(input, output, session) {
     check_point(.i())
   })
 
-  # Observe and implement for expected value/Matrix/Displaychoice
- 
+  #### Observe changes for expected value, matrix, and display choice ----
   observeEvent(c(input$outcome, input$method), {
     updateExpectedValuesLabel()
     updateMatrixColNames()
     updateDisplayChoices()
   })
-  
   observeEvent(c(input$x_aes, input$cluster), updateDisplayChoices())
 
 
 
-  # updates the debugging mode status based on the 'check' input
-  # observeEvent(input$check, {
-  #   # shared_val$check <- input$check
-  #   print(input$check)
-  #   k <- input$check
-  # 
-  #   .i(k)
-  # })
-  # observe(cat("Hello: ",.i()," \n"))
-  
+  ### Update Sample Size labels -------
+  # updates the sample label based on the value of the "cluster" input.
+  updateSampleLabel <- reactive({
+    # Print a debugging message to the console
+    check_point(.i(), "\nupdateSampleLabel: Checking..")
+
+    # If the 'cluster' checkbox is checked, update the sample label to reflect that we're calculating the number of clusters per arm
+    if (input$cluster == T) {
+      shared_val$sample_label <- c("Number of Clusters (per arm)" = "c")
+    } else {
+      # Otherwise, update the sample label to reflect that we're calculating the sample size per arm
+      shared_val$sample_label <- c("Sample Size (per arm)" = "c")
+    }
+
+    # Print a debugging message to the console indicating that the update is complete
+    check_point(.i())
+  })
+  # Observe and implement
+  observeEvent(input$cluster, updateSampleLabel())
+
+
+
+
+
+
+
+
   ### Update Step size ----
   observeEvent(c(input[[input$x_aes]], input$matrix_e, input$matrix_sd), {
     check_point(.i(), "\nObserveEvent StepSize : Checking..")
@@ -253,18 +316,9 @@ server <- function(input, output, session) {
   })
 
 
-  # Define reactive function for rendering method input options based on selected outcome
-  output$method_input <- renderUI({
-    outcome <- input$outcome
-    method_choices <- list("Group 2" = "direct", "Absolute Difference" = "absolute")
-    if (outcome != "Mean") {
-      method_choices[["Relative Difference"]] <- "relative"
-    }
-    radioButtons("method",
-      label = "Select Comparison Input:",
-      choices = method_choices, selected = "direct"
-    )
-  })
+
+
+
 
 
 
@@ -446,8 +500,9 @@ server <- function(input, output, session) {
   observeEvent(input$calculate, {
     # check_point(shared_val$check, "\nBefore validate.... \n")
     req(iv$is_valid())
-    req(iv_m$is_valid())
-    req(iv_mt_rel$is_valid())
+    #req(iv_m$is_valid())
+    #req(iv_mt_rel$is_valid())
+    req(iv_cluster$is_valid())
     # req(iv_in$is_valid())
     # Validate data
     # validate(
