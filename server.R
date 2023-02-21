@@ -1,5 +1,3 @@
-# ---------
-
 source("helper.R", local = T)
 
 # Define server logic required for calculation
@@ -9,31 +7,52 @@ server <- function(input, output, session) {
 
   # Global validator
   iv <- InputValidator$new()
-  # Conditional validator
   
-  # Mean 
+  # Conditional validator
+  # Mean
   iv_m <- InputValidator$new()
   iv_m$condition(~ (input$outcome == "Mean"))
   iv$add_validator(iv_m)
   
-  # proportion
-  #iv_p <- InputValidator$new()
-  #iv_p$condition(~ (input$outcome == "Proportion"))
-  #iv$add_validator(iv_p) # Nested
+  # # Proportion  
+  # iv_p <- InputValidator$new()
+  # iv_p$condition(~ (input$outcome == "Proportion"))
+  # iv$add_validator(iv_p)
+  # 
+  # # Proportion  
+  # iv_i <- InputValidator$new()
+  # iv_i$condition(~ (input$outcome == "Incidence Rate"))
+  # iv$add_validator(iv_i)
   
+
+  # Direct comparison method
+  iv_mt_direct <- InputValidator$new()
+  iv_mt_direct$condition(~ (input$method == "direct"))
+  iv$add_validator(iv_mt_direct)
   
-  
-  # Relative method 
+    # proportion
+    iv_p_dr <- InputValidator$new()
+    iv_p_dr$condition(~ (input$outcome == "Proportion"))
+    iv_mt_direct$add_validator(iv_p_dr) # Nested
+    
+    # Incidence
+    iv_i_dr <- InputValidator$new()
+    iv_i_dr$condition(~ (input$outcome == "Incidence Rate"))
+    iv_mt_direct$add_validator(iv_i_dr) # Nested
+    
+  # Relative method
   iv_mt_rel <- InputValidator$new()
   iv_mt_rel$condition(~ (input$method == "relative"))
-  
+  iv$add_validator(iv_mt_rel)
+
+
   # Cluster design
   iv_cluster <- InputValidator$new()
   iv_cluster_hetero <- InputValidator$new()
-  
+
   iv_cluster$condition(~ (input$cluster))
   iv_cluster_hetero$condition(~ (input$cv_type == "separate"))
-  
+
   iv_cluster$add_validator(iv_cluster_hetero)
   # iv_p$condition(~ (input$outcome == "Proportion"))
 
@@ -41,37 +60,59 @@ server <- function(input, output, session) {
   ## Validator Rules ---------------------------------------------------------
 
   # Expected Matrix
-  iv$add_rule("matrix_e", compose_rules(sv_required(),
-                                        sv_numeric(allow_multiple = TRUE)
-                                        )
-              )
-  #iv_p$add_rule("matrix_e", sv_between(0,1))
-  #iv$add_rule("matrix_e", )
-  # iv_mt_rel$add_rule("matrix_e", function(value) {
-  #   Ei <- value[1,2]
-  #   if (Ei < 0 || is.na(Ei)) {
-  #     "Ratio should be a non-negative number"
-  #   }
-  # })
+  iv$add_rule("matrix_e", compose_rules(
+    sv_required(),
+    sv_numeric(allow_multiple = TRUE)
+  ))
+  
+  # Under all
+  # iv_p$add_rule("matrix_e", compose_rules(
+  #   sv_required(),
+  #   function(x) if(any(x==5)) "Must be between 0 and 1111")
+  # )
+  #               
+  # iv_i$add_rule("matrix_e", compose_rules(
+  #   sv_required(),
+  #   ~if(!(.[,1] < 0)) "Must be between 0 and Inf")
+  # )
+  
+  # Under direct
+  iv_p_dr$add_rule("matrix_e", sv_between(0,1))
+  iv_i_dr$add_rule("matrix_e", sv_gte(0, allow_multiple = TRUE))
+  
+  # Under Relative
+  iv_mt_rel$add_rule("matrix_e", function(value) {
+    Ei <- value[1,2]
+    if (Ei < 0 || is.na(Ei)) {
+      "Must not contain `NA` values / Only a non-negative ratio is allowed"
+    }
+  })
 
   # SD matrix
-  iv_m$add_rule("matrix_sd", compose_rules(sv_required(),
-                                           sv_numeric(allow_multiple = TRUE),
-                                           sv_gte(0, allow_multiple = TRUE))
-                )
-  #iv_m$add_rule("matrix_sd", sv_numeric(allow_multiple = TRUE))
-  #iv_m$add_rule("matrix_sd", sv_between(0, Inf))
+  iv_m$add_rule("matrix_sd", compose_rules(
+    sv_required(),
+    sv_numeric(allow_multiple = TRUE),
+    sv_gte(0, allow_multiple = TRUE)
+  ))
+  # iv_m$add_rule("matrix_sd", sv_numeric(allow_multiple = TRUE))
+  # iv_m$add_rule("matrix_sd", sv_between(0, Inf))
+
+  # Power and alpha
+  iv$add_rule("power", sv_between(0,1))
+  iv$add_rule("alpha", sv_between(0,1))
   
   # Cluster blobs
   iv_cluster_hetero$add_rule("CVi", sv_gte(0))
   iv_cluster$add_rule("CVc", sv_gte(0))
   iv_cluster$add_rule("cluster_size", compose_rules(sv_integer(), sv_gte(0)))
 
+  
+  
   ## Enabling the validators ---------------------------------------------------
 
   iv$enable() # Global
-  #iv_m$enable() # under 'mean'
-  #iv_mt_rel$enable() # under 'Relative'
+  # iv_m$enable() # under 'mean'
+  # iv_mt_rel$enable() # under 'Relative'
   iv_cluster$enable() # under 'Relative'
   # More to come
 
@@ -155,7 +196,7 @@ server <- function(input, output, session) {
   # Reactive function to update labels based on input$outcome and input$method
   updateExpectedValuesLabel <- reactive({
     # Checkpoint before making changes
-    check_point(.i(), "\nUpdate Expected value Labels Reactive function: ..")
+    check_point(.i(), "Update Expected valueLabels", 1, 2)
 
     # Get input values
     outcome <- input$outcome
@@ -182,7 +223,7 @@ server <- function(input, output, session) {
     matrix_e <- input$matrix_e
 
     # Check current status of the function
-    check_point(.i(), "\nupdateMatrixColNames: Checking..")
+    check_point(.i(), "updateMatrixColNames", 2)
 
     # Update column names
     colnames(matrix_e) <- names(shared_val$labels[1:2])
@@ -198,7 +239,7 @@ server <- function(input, output, session) {
   # Reactive function to update display choices
   updateDisplayChoices <- reactive({
     # Check current status of the function
-    check_point(.i(), "\nupdateDisplayChoices reactive function: Checking..")
+    check_point(.i(), "updateDisplayChoices", 2)
 
     # Get input values
     outcome <- input$outcome
@@ -242,7 +283,7 @@ server <- function(input, output, session) {
   # updates the sample label based on the value of the "cluster" input.
   updateSampleLabel <- reactive({
     # Print a debugging message to the console
-    check_point(.i(), "\nupdateSampleLabel: Checking..")
+    check_point(.i(), "updateSampleLabel", 1, 2)
 
     # If the 'cluster' checkbox is checked, update the sample label to reflect that we're calculating the number of clusters per arm
     if (input$cluster == T) {
@@ -267,7 +308,7 @@ server <- function(input, output, session) {
 
   ### Update Step size ----
   observeEvent(c(input[[input$x_aes]], input$matrix_e, input$matrix_sd), {
-    check_point(.i(), "\nObserveEvent StepSize : Checking..")
+    check_point(.i(), "ObserveEvent StepSize", 1, 2)
 
     x_aes <- input$x_aes
     # print(shared_val$focus_val)
@@ -293,7 +334,7 @@ server <- function(input, output, session) {
   observeEvent(c(shared_val$focus_val, input$x_step_size), {
     # Debugging
 
-    check_point(.i(), "\nCalculate Sample Size Reactive function: ..")
+    check_point(.i(), "SliderUpdating", 1, 2)
 
     x_aes <- input$x_aes
     # print(shared_val$focus_val)
@@ -315,32 +356,13 @@ server <- function(input, output, session) {
     check_point(.i())
   })
 
-
-
-
-
-
-
-
+  ### SampleSize Calculation Cascade ----
   # Define reactive function for calculating the sample size
   calculateSampleSize <- reactive({
-    # check <- input$check
-
-
-    check_point(.i(), "\nCalculate Sample Size Reactive function: ..")
-
-
-    # validate(
-    #   # Check blank input
-    #   need(anyNA(input$matrix_e), "Group 1 and Group 2 data")#,
-    #   #need(anyNA(input$matrix_SD) & input$outcome == "Mean", "Both SD")
-    #
-    #   # if cluster
-    #
-    # )
+    check_point(.i(), "Calculate Sample Size", 1, 2)
 
     # Extract input values
-    check_point(.i(), "\n\tData extract: Checking..")
+    check_point(.i(), "Data extraction", 2)
     # if(input$check == T) cat("\n\tData extract: Checking..")
     outcome <- input$outcome
     method <- input$method
@@ -363,16 +385,12 @@ server <- function(input, output, session) {
     col_var <- as.numeric(input$col_var)
     labels <- shared_val$labels
     sample_label <- shared_val$sample_label
-    # --------------------------------
-    # cat(sample_label)
 
     # Check
     check_point(.i())
-    # if(input$check == T) cat("okay!")
 
-    # -----
     # Data.frame result
-    check_point(.i(), "\n\tDF computed: Checking..")
+    check_point(.i(), "Building DF", 2)
     # if(input$check == T) cat("\n\tDF computed: Checking..")
 
     df_output <- df_prepare(
@@ -399,14 +417,12 @@ server <- function(input, output, session) {
       arrange(!!sym(x_aes), !!sym(color_aes)) %>%
       group_by(!!sym(color_aes))
 
-    # cat("Calculate_afterDf")
     # Check
     check_point(.i())
-    # if(input$check == T) cat("okay!")
 
     # Check
-    check_point(.i(), "\n\tPlot generate: Checking..")
-    # if(input$check == T) cat("\n\tPlot generate: Checking..")
+    check_point(.i(), "Generating Plot", 2)
+
     plot_output <-
       df_output %>%
       mutate(text_hover = paste0(
@@ -428,13 +444,7 @@ server <- function(input, output, session) {
         marker = list(opacity = 0.8, size = 6),
         hoverinfo = "text",
         text = ~text_hover
-        #   paste0(
-        #   names(labels[labels == x_aes]), ": ", !!x_aes,
-        #   "<br>", names(labels[labels == color_aes]), ": ", df_output[[color_aes]],
-        #   "<br><b>", names(sample_label), ": ", c, "</b>"
-        # )
       ) %>%
-      # add_lines() %>%
       layout(
         xaxis = list(title = names(labels[labels == x_aes])),
         yaxis = list(title = names(sample_label)),
@@ -445,27 +455,24 @@ server <- function(input, output, session) {
     check_point(.i())
     # if(input$check == T) cat("okay!")
 
-    # Check
-    check_point(.i(), "\n\tSelect relevant column: Checking..")
-    # if(input$check == T) cat("\n\tSelect relevant column: Checking..")
-
+    # Estimate sample for cluster design
     if (cluster) {
       df_output <- df_output %>%
         mutate(N = cluster_size * c)
     }
+
+    # Check
+    check_point(.i(), "Remove NA columns", 2)
+
     df_output <- df_output %>%
       select(any_of(c(labels, sample_label, "Total Pop (per arm)" = "N")))
 
-    # cat("Calculate_afterDf2")
-    # print(color_aes))
-    # print(!!sym(color_aes))
-    # Check
     check_point(.i())
-    # if(input$check == T) cat("okay!")
+
 
     # Check
-    check_point(.i(), "\n\tReactable computed: Checking..")
-    # if(input$check == T) cat("\n\tReactable computed: Checking..")
+    check_point(.i(), "Producing a reactable", 2)
+
     # Change it to reactable
     df_output_rt <- reactable(
       df_output,
@@ -480,45 +487,26 @@ server <- function(input, output, session) {
       bordered = TRUE,
       highlight = TRUE
     )
-
-    # Identify the column labels
     # Check
     check_point(.i())
-    # if(input$check == T) cat("okay!")
 
-    # Check
-    # check_point(.i(), "\n\tParseing output: Checking..")
-    # if(input$check == T) cat("\n\tParseing output: Checking..")
+    # output
     lst( # text_output,
-      df_output, # %>% select(any_of(c(labels, sample_label = "c"))),
+      df_output,
       df_output_rt,
       plot_output
     )
   })
 
-  # Call the calculateSampleSize function when the Calculate button is clicked
+  #### Call the calculateSampleSize function when the Calculate button is clicked -----
   observeEvent(input$calculate, {
     # check_point(shared_val$check, "\nBefore validate.... \n")
     req(iv$is_valid())
-    #req(iv_m$is_valid())
-    #req(iv_mt_rel$is_valid())
+    # req(iv_m$is_valid())
+    # req(iv_mt_rel$is_valid())
     req(iv_cluster$is_valid())
     # req(iv_in$is_valid())
-    # Validate data
-    # validate(
-    #   # Check blank input
-    #   need(anyNA(input$matrix_e), "Group 1 and Group 2 data")#,
-    #   #need(anyNA(input$matrix_SD) & input$outcome == "Mean", "Both SD")
-    #
-    #   # if cluster
-    #
-    # )
-
     out <- calculateSampleSize()
-    # check_point(shared_val$check, "\nAfter validate \n")
-    # check_point(shared_val$check, "Pass!\n\n") #cat("okay!\n\n")
-    # Render the calculated result
-    # output$text <- renderPrint(out$text_output)
 
     # Render the data frame
     output$data_frame <- renderReactable(out$df_output_rt)
@@ -544,4 +532,3 @@ server <- function(input, output, session) {
     }
   )
 }
-# print("server.R" %++% " End")

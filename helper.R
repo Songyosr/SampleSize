@@ -40,7 +40,7 @@ parse_x <- function(value, step_size, from = -2, to = 2) {
 # A helper function to check a given condition and print a message if the condition is true
 check_point <- function(condition, msg = NULL, h = 1, n =1) {
   if (condition){
-    if (is.null(msg)) msg <- "... Ok\n"
+    if (is.null(msg)) msg <- "... Ok"
     else {
       msg <- paste0(c(rep("\n", n), rep("   ", h-1),
                     "Checking [ ", msg, " ]"), collapse = "")
@@ -75,6 +75,14 @@ SS_calculation2 <- function(outcome = c("Proportion", "Mean", "Incidence Rate"),
     CVc <- 0
   }
   if (is.na(CVi)) CVi <- CVc
+  
+  # Calculate expected value in intervention group
+  if (method == "absolute") {
+    Ei <- as.numeric(Ei) + Ec
+  } else if (method == "relative") {
+    Ei <- Ec * as.numeric(Ei)
+  }
+  
   # More boring calculations
   # Might need to update soon to a more generalized formula
   # Also we might need to consider unequal size between two group

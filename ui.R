@@ -162,7 +162,7 @@ ui <- fluidPage(
   fluidRow(
     style = "text-align: center; color: grey;",
     HTML(paste0(
-      "SampleSizer: because (Sample) size matters v0.1.2-alpha - learning how to code edition (very buggy!) <br> Update: ",Sys.Date()," | Created by ",
+      "SampleSizer: because (Sample) size matters v0.1.3-alpha - learning how to code edition (very buggy!) <br> Update: ",Sys.Date()," | Created by ",
       a("Songyos Rajborirug (Tony)", href = "https://github.com/Songyosr")
     ))
   )
