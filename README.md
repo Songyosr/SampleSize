@@ -8,13 +8,12 @@ The SampleSizer app includes the following features:
 
 - Calculation of sample size for mean, proportion, and incidence rate outcomes
 - Support for cluster designs
-- Customizable inputs for power, significance level, and coefficient of variation
-- Customizable input method for intervention
+- Support sample size calculation for multiple scenarios 
 - Customizable color and x-axis variables for data visualization
 
 ## Installation
 
-You can run the SampleSizer app locally by cloning this repository and running the `app.R` file in RStudio. Alternatively, you can access the app online at [https://songyosr.shinyapps.io/samplesizer/](https://songyosr.shinyapps.io/samplesizer/).
+You can run the SampleSizer app locally by cloning this repository and running the `server.R` or `ui.R` file in RStudio. Alternatively, you can access the app online at [https://songyosr.shinyapps.io/samplesizer/](https://songyosr.shinyapps.io/samplesizer/).
 
 ## Usage
 
