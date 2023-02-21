@@ -1,6 +1,6 @@
 # SampleSizer: A Shiny App for Calculating Sample Size
 
-Welcome to the SampleSizer Shiny app, a tool for researchers and statisticians to calculate the necessary sample size for a study. This app is designed to be user-friendly, flexible, and powerful.
+Hey there, welcome to the SampleSizer Shiny app! This app is designed to help researchers and statisticians calculate the necessary sample size for a study. It's a bit of a work-in-progress, so sorry in advance for the bugs!
 
 ## Features
 
@@ -25,8 +25,12 @@ If you have any feedback or suggestions for the SampleSizer app, please feel fre
 
 ## Author
 
-The SampleSizer app was created by [Songyos Rajborirug](https://github.com/songyosr).
+The SampleSizer app was created by [Songyos Rajborirug](https://github.com/songyosr), who's using this project as an excuse to practice with Shiny. If you find any bugs, it's probably because he's still learning.
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+----
+
+Thanks for checking out the app, and happy calculating!
