@@ -1,0 +1,14 @@
+name: Sample_Size
+title: Sample_Size
+username:
+account: songyosr
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 8353730
+bundleId: 6868306
+url: https://songyosr.shinyapps.io/Sample_Size/
+when: 1676940271.60445
+lastSyncTime: 1676940271.60447
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .RData|newdir_11/.DS_Store|tests/shinytest.R|del
