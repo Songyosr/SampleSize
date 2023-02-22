@@ -1,6 +1,6 @@
 # SampleSizer: A Shiny App for Calculating Sample Size 
 
-Hey there, welcome to the SampleSizer Shiny app! This app is designed to help researchers and statisticians calculate the necessary sample size for a study. It's a bit of a work-in-progress, so sorry in advance for the bugs!
+Welcome to the SampleSizer Shiny app! This app is designed to help researchers and statisticians calculate the necessary sample size for a study.
 
 ## Features
 
@@ -10,8 +10,10 @@ The SampleSizer app includes the following features:
 - Support for cluster designs
 - Support sample size calculation for multiple scenarios 
 - Customizable color and x-axis variables for data visualization
+- A tidi-tidy bit of data validation
+- Validators to check input data range
 
-![SampleSizer in action](fig/example_v0.1.0_alpha.gif)
+![SampleSizer in action](fig/example_v0.2.0_pre-alpha.gif)
 
 ## Installation
 
@@ -19,7 +21,15 @@ You can run the SampleSizer app locally by cloning this repository and running t
 
 ## Usage
 
-To use the app, simply select the outcome type, input method, and other relevant parameters, and then click the "Calculate" button to generate the sample size. The app will display the resulting sample size, along with a reactable data frame and a plotly chart for data visualization.
+To use the app, simply select the outcome type, input method, and other relevant parameters, and then input the data points in the numeric input fields with icons. Click the "Calculate" button to generate the sample size. The app will display the resulting sample size, along with a reactable data frame and a plotly chart for data visualization.
+
+## Short-term Goals [as time permit, lol]
+
+- Adding options to round (ceiling) the estimated sample size/number of cluster
+- Changing to a new formula that takes in the unequal size arm
+- Adding option for odds ratio for method
+- Reworking on the main panel, mainly focus on organizing the output part (still having no idea what to do)
+- Creating a test_run dataset
 
 ## Contributing
 
@@ -33,6 +43,3 @@ The SampleSizer app was created by [Songyos Rajborirug](https://github.com/songy
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-----
-
-Thanks for checking out the app, and happy calculating!
