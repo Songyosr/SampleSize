@@ -7,43 +7,43 @@ server <- function(input, output, session) {
 
   # Global validator
   iv <- InputValidator$new()
-  
+
   # Conditional validator
   # Mean
   iv_m <- InputValidator$new()
   iv_m$condition(~ (input$outcome == "Mean"))
   iv$add_validator(iv_m)
-  
-  # # Proportion  
+
+  # # Proportion
   # iv_p <- InputValidator$new()
   # iv_p$condition(~ (input$outcome == "Proportion"))
   # iv$add_validator(iv_p)
-  # 
-  # # Proportion  
+  #
+  # # Proportion
   # iv_i <- InputValidator$new()
   # iv_i$condition(~ (input$outcome == "Incidence Rate"))
   # iv$add_validator(iv_i)
-  
+
 
   # Direct comparison method
-  iv_mt_direct <- InputValidator$new()
-  iv_mt_direct$condition(~ (input$method == "direct"))
-  iv$add_validator(iv_mt_direct)
-  
-    # proportion
-    iv_p_dr <- InputValidator$new()
-    iv_p_dr$condition(~ (input$outcome == "Proportion"))
-    iv_mt_direct$add_validator(iv_p_dr) # Nested
-    
-    # Incidence
-    iv_i_dr <- InputValidator$new()
-    iv_i_dr$condition(~ (input$outcome == "Incidence Rate"))
-    iv_mt_direct$add_validator(iv_i_dr) # Nested
-    
-  # Relative method
-  iv_mt_rel <- InputValidator$new()
-  iv_mt_rel$condition(~ (input$method == "relative"))
-  iv$add_validator(iv_mt_rel)
+  # iv_mt_direct <- InputValidator$new()
+  # iv_mt_direct$condition(~ (input$method == "direct"))
+  # iv$add_validator(iv_mt_direct)
+
+  # proportion
+  # iv_p_dr <- InputValidator$new()
+  # iv_p_dr$condition(~ (input$outcome == "Proportion"))
+  # iv_mt_direct$add_validator(iv_p_dr) # Nested
+  #
+  # # Incidence
+  # iv_i_dr <- InputValidator$new()
+  # iv_i_dr$condition(~ (input$outcome == "Incidence Rate"))
+  # iv_mt_direct$add_validator(iv_i_dr) # Nested
+  #
+  # # Relative method
+  # iv_mt_rel <- InputValidator$new()
+  # iv_mt_rel$condition(~ (input$method == "relative"))
+  # iv$add_validator(iv_mt_rel)
 
 
   # Cluster design
@@ -60,54 +60,56 @@ server <- function(input, output, session) {
   ## Validator Rules ---------------------------------------------------------
 
   # Expected Matrix
-  iv$add_rule("matrix_e", compose_rules(
-    sv_required(),
-    sv_numeric(allow_multiple = TRUE)
-  ))
+  iv$add_rule("Ei", sv_required())
+  iv$add_rule("Ec", sv_required())
   
+
   # Under all
   # iv_p$add_rule("matrix_e", compose_rules(
   #   sv_required(),
   #   function(x) if(any(x==5)) "Must be between 0 and 1111")
   # )
-  #               
+  #
   # iv_i$add_rule("matrix_e", compose_rules(
   #   sv_required(),
   #   ~if(!(.[,1] < 0)) "Must be between 0 and Inf")
   # )
-  
+
   # Under direct
-  iv_p_dr$add_rule("matrix_e", sv_between(0,1))
-  iv_i_dr$add_rule("matrix_e", sv_gte(0, allow_multiple = TRUE))
-  
+  # iv_p_dr$add_rule("matrix_e", sv_between(0, 1))
+  # iv_i_dr$add_rule("matrix_e", sv_gte(0, allow_multiple = TRUE))
+
   # Under Relative
-  iv_mt_rel$add_rule("matrix_e", function(value) {
-    Ei <- value[1,2]
-    if (Ei < 0 || is.na(Ei)) {
-      "Must not contain `NA` values / Only a non-negative ratio is allowed"
-    }
-  })
+  # iv_mt_rel$add_rule("matrix_e", function(value) {
+  #   Ei <- value[1, 2]
+  #   if (Ei < 0 || is.na(Ei)) {
+  #     "Must not contain `NA` values / Only a non-negative ratio is allowed"
+  #   }
+  # })
 
   # SD matrix
-  iv_m$add_rule("matrix_sd", compose_rules(
-    sv_required(),
-    sv_numeric(allow_multiple = TRUE),
-    sv_gte(0, allow_multiple = TRUE)
-  ))
+  # iv_m$add_rule("matrix_sd", compose_rules(
+  #   sv_required(),
+  #   sv_numeric(allow_multiple = TRUE),
+  #   sv_gte(0, allow_multiple = TRUE)
+  # ))
+  #iv_m$add_rule("SDi",  sv_required())
+  #iv_m$add_rule("SDc",  sv_required())
+  #iv_m$add_rule("Ec",  compose( sv_required(), sv_gte(0)))
   # iv_m$add_rule("matrix_sd", sv_numeric(allow_multiple = TRUE))
-  # iv_m$add_rule("matrix_sd", sv_between(0, Inf))
+  # iv_m$add_rule("matrix_sd", sv_between0, Inf))
 
   # Power and alpha
-  iv$add_rule("power", sv_between(0,1))
-  iv$add_rule("alpha", sv_between(0,1))
-  
+  iv$add_rule("power", sv_required())
+  iv$add_rule("alpha", sv_required())
+
   # Cluster blobs
   iv_cluster_hetero$add_rule("CVi", sv_gte(0))
   iv_cluster$add_rule("CVc", sv_gte(0))
   iv_cluster$add_rule("cluster_size", compose_rules(sv_integer(), sv_gte(0)))
 
-  
-  
+
+
   ## Enabling the validators ---------------------------------------------------
 
   iv$enable() # Global
@@ -122,7 +124,7 @@ server <- function(input, output, session) {
   # Comparison method dictionary
   method_labels <- c(
     "direct" = "(Gr.2)",
-    "absolute" = "Difference",
+    "absolute" = "Diff",
     "relative" = "Ratio"
   )
 
@@ -169,21 +171,23 @@ server <- function(input, output, session) {
 
     # Update choices for the radio button based on selected outcome
     if (input$outcome == "Mean") {
-      updateRadioButtons(session, "method",
+      # Test
+      updateRadioGroupButtons(session,
+        inputId = "method",
         choices = c(
-          "Group 2 info" = "direct",
-          "Differences (Gr.1 - Gr.2)" = "absolute"
+          "Group 2" = "direct",
+          "Difference" = "absolute"
         ),
-        selected = "direct"
       )
     } else {
-      updateRadioButtons(session, "method",
+      # Test
+      updateRadioGroupButtons(session,
+        inputId = "method",
         choices = c(
-          "Group 2 info" = "direct",
-          "Differences (Gr.1 - Gr.2)" = "absolute",
-          "Ratio (Gr.1 / Gr.2)" = "relative"
+          "Group 2" = "direct",
+          "Difference" = "absolute",
+          "Ratio" = "relative"
         ),
-        selected = "direct"
       )
     }
 
@@ -215,25 +219,77 @@ server <- function(input, output, session) {
     # Checkpoint after making changes
     check_point(.i())
   })
-
+  
+  ## Legacy
   #### Update matrix column name ----
   # Reactive function to update matrix column names
-  updateMatrixColNames <- reactive({
-    # Get input values
-    matrix_e <- input$matrix_e
+  # updateMatrixColNames <- reactive({
+  #   # Get input values
+  #   matrix_e <- input$matrix_e
+  #
+  #   # Check current status of the function
+  #   check_point(.i(), "updateMatrixColNames", 2)
+  #
+  #   # Update column names
+  #   colnames(matrix_e) <- names(shared_val$labels[1:2])
+  #
+  #   # Update the matrix
+  #   updateMatrixInput(session, "matrix_e",
+  #     value = matrix_e
+  #   )
+  #
+  #
+  #   check_point(.i())
+  # })
 
-    # Check current status of the function
-    check_point(.i(), "updateMatrixColNames", 2)
+  #--- Render UI for Data imput  ----
+  # Need to do this because the updateNumericInputIcon fails to update label
+  # We will add the issue to thier page later
 
-    # Update column names
-    colnames(matrix_e) <- names(shared_val$labels[1:2])
+  updateUIdataInput <- reactive({
+    output$input_container <- renderUI({
+      outcome <- input$outcome
+      method <- input$method
 
-    # Update the matrix
-    updateMatrixInput(session, "matrix_e",
-      value = matrix_e
-    )
-    check_point(.i())
+      Ei <- isolate(input$Ei)
+      Ec <- isolate(input$Ec)
+      # Get limits and icon
+      labels <- names(shared_val$labels[1:2])
+      min_max_Ec <- set_limit(outcome, "direct") |> unname()
+      min_max_Ei <- set_limit(outcome, method) |> unname()
+      icons <- set_icon(method)
+
+      fluidRow(
+        column(6,
+          numericInputIcon(
+            inputId = "Ec",
+            label = labels[1],
+            help_text = "Out of range!",
+            value = Ec,
+            min = min_max_Ec[1], max = min_max_Ec[2], step = 0.01,
+            icon = icon("people-group")
+          ),
+          style = "padding:0.5%;"
+        ),
+        column(6,
+          numericInputIcon(
+            inputId = "Ei",
+            label = labels[2],
+            help_text = "Out of range!",
+            value = Ei,
+            min = min_max_Ei[1], max = min_max_Ei[2], step = 0.01,
+            icon = icons
+          ),
+          style = "padding:0.5%;"
+        ),
+        style = "margin:0%; justify-content: space-between",
+        class = "flex-row"
+      )
+    })
   })
+
+
+
 
   #### Update choice for aesthetic X and color ----
   # Reactive function to update display choices
@@ -272,7 +328,9 @@ server <- function(input, output, session) {
   #### Observe changes for expected value, matrix, and display choice ----
   observeEvent(c(input$outcome, input$method), {
     updateExpectedValuesLabel()
-    updateMatrixColNames()
+    updateUIdataInput()
+    # updateMatrixColNames()
+    # updateDataLabel()
     updateDisplayChoices()
   })
   observeEvent(c(input$x_aes, input$cluster), updateDisplayChoices())
@@ -312,15 +370,16 @@ server <- function(input, output, session) {
 
     x_aes <- input$x_aes
     # print(shared_val$focus_val)
-    k <- ifelse(x_aes == "Ec", input$matrix_e[, 1],
-      ifelse(x_aes == "Ei", input$matrix_e[, 2],
-        ifelse(x_aes == "SDc", input$matrix_sd[, 1],
-          ifelse(x_aes == "SDi", input$matrix_sd[, 2],
-            as.numeric(input[[input$x_aes]])
-          )
-        )
-      )
-    )
+    k <- as.numeric(input[[input$x_aes]]) 
+      # ifelse(x_aes == "Ec", input$matrix_e[, 1],
+      # ifelse(x_aes == "Ei", input$matrix_e[, 2],
+      #ifelse(x_aes == "SDc", input$matrix_sd[, 1],
+      #  ifelse(x_aes == "SDi", input$matrix_sd[, 2],
+      #    as.numeric(input[[input$x_aes]])
+      #  )
+      #)
+    #  )
+    # )
 
 
     step_size <- step_fun(k)
@@ -367,16 +426,16 @@ server <- function(input, output, session) {
     outcome <- input$outcome
     method <- input$method
 
-    Ec <- as.numeric(input$matrix_e[, 1])
-    Ei <- as.numeric(input$matrix_e[, 2])
-    SDc <- as.numeric(input$matrix_sd[, 1])
-    SDi <- as.numeric(input$matrix_sd[, 2])
+    Ec <- as.numeric(input$Ec) # matrix_e[, 1])
+    Ei <- as.numeric(input$Ei) # matrix_e[, 2])
+    SDc <- as.numeric(input$SDc)#matrix_sd[, 1])
+    SDi <- as.numeric(input$SDi)#matrix_sd[, 2])
     CVc <- as.numeric(input$CVc) # / 100
     CVi <- as.numeric(input$CVi) # / 100
     cluster <- input$cluster
     cluster_size <- ifelse(input$cluster, input$cluster_size, NA)
-    alpha <- input$alpha
-    power <- input$power
+    alpha <- input$alpha / 100
+    power <- input$power / 100
     check <- F # input$ckeckbox
     x_aes <- input$x_aes
     x_step_size <- input$x_step_size
@@ -478,8 +537,6 @@ server <- function(input, output, session) {
       df_output,
       defaultPageSize = 5,
       defaultColDef = colDef(
-        # header = function(value) gsub(".", " ", value, fixed = TRUE),
-        # cell = function(value) format(value, nsmall = 1),
         align = "center",
         minWidth = 70,
         headerStyle = list(background = "#f7f7f8")
@@ -502,10 +559,7 @@ server <- function(input, output, session) {
   observeEvent(input$calculate, {
     # check_point(shared_val$check, "\nBefore validate.... \n")
     req(iv$is_valid())
-    # req(iv_m$is_valid())
-    # req(iv_mt_rel$is_valid())
     req(iv_cluster$is_valid())
-    # req(iv_in$is_valid())
     out <- calculateSampleSize()
 
     # Render the data frame

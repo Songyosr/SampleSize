@@ -5,8 +5,17 @@ source("helper.R", local = T)
 
 #print("UI.R" %++% " Start")
 ui <- fluidPage(
+  # CSS
+  tags$head(
+    tags$style(
+      #HTML(".my-numeric-input label {display: none;}"),
+      HTML(".flex-row { display: flex; flex-direction: row !important;}")
+    )
+  ),
+  
   # Title panel
-  titlePanel("Sample Size Calculator"),
+  titlePanel("Sample Sizer: because (Sample) size matters"),
+  
 
   # Sidebar layout with input options
   sidebarLayout(
@@ -20,52 +29,137 @@ ui <- fluidPage(
         choices = list("Mean", "Proportion", "Incidence Rate"),
         selected = "Proportion"
       ),
-
+      
       # Radio buttons for intervention input method
-      radioButtons("method",
-                   label = "Select Comparison method:",
-                   choices = c("Group 2 info" = "direct", 
-                               "Differences (Gr.1 - Gr.2)" = "absolute", 
-                               "Ratio (Gr.1 / Gr.2)" = "relative"),
-                   selected = "direct"
-      ), 
-      hr(),
-      # Matrix inputs
-      matrixInput("matrix_e",
-        rows = list(names = FALSE),
-        cols = list(names = TRUE),
-        class = "numeric",
-        value = matrix(NA, 1, 2)
+      radioGroupButtons(
+        inputId = "method",
+        label = NULL,#"Select Comparison method (1 vs. 2):", 
+        justified = T,
+        choices = c("Group 2" = "direct", 
+                    "Difference" = "absolute", 
+                    "Ratio" = "relative"),
+        selected = "direct"
       ),
+      
+      
+      ## Legacy
+      # Matrix inputs
+      # matrixInput("matrix_e",
+      #   rows = list(names = FALSE),
+      #   cols = list(names = TRUE),
+      #   class = "numeric",
+      #   value = matrix(NA, 1, 2)
+      # ),
+      
+      # UI for data entry
+      uiOutput("input_container"),
+      
+      
+      # Test run
+      # fluidRow(
+      #   column(6, 
+      #          numericInput(
+      #            inputId = "Ec",
+      #            label = "Proportion (Gr.1)", #help_text =  "Out of range!",
+      #            min = 0, max = 1, step = 0.01, value = NULL,
+      #            #icon = list(icon("people-group")),
+      #            width = "100%"
+      #            ),
+      #          style = 'padding-right: 0.1%; flex-grow: 1;'),
+      #   column(6, 
+      #          numericInput(
+      #            inputId = "Ei",
+      #            label = "Proportion (Gr.2)", #help_text =  "Out of range!",
+      #            min = 0, max = 1, step = 0.01, value = NULL,
+      #            #icon = list(icon("people-group")),
+      #            #
+      #            width = "100%"
+      #          ),
+      #          style = 'padding-left: 0.1%; flex-grow: 1;'),
+      #   style = 'margin:0%; justify-content: space-between',
+      #   class = "flex-row"
+      # ),
+      
+      # For SD
       conditionalPanel(
         condition = "input.outcome === 'Mean'",
-        matrixInput("matrix_sd",
-          rows = list(names = FALSE),
-          cols = list(names = TRUE),
-          class = "numeric",
-          value = {
-            k <- matrix(NA, 1, 2)
-            colnames(k) <- c("SD (Gr.1)", "SD (Gr.2)")
-            k
-          }
+        fluidRow(
+          column(6,
+                 numericInputIcon(
+                   inputId = "SDc",
+                   label = "SD (Gr.1)",
+                   help_text = "Out of range!",
+                   value = NULL,
+                   min = 0, max = Inf, step = 0.01,
+                   icon = icon("chart-simple")
+                 ),
+                 style = "padding:0.5%;"
+          ),
+          column(6,
+                 numericInputIcon(
+                   inputId = "SDi",
+                   label = "SD (Gr.2)",
+                   help_text = "Out of range!",
+                   value = NULL,
+                   min = 0, max = Inf, step = 0.01,
+                   icon = icon("chart-simple")
+                 ),
+                 style = "padding:0.5%;"
+          ),
+          style = "margin:0%; justify-content: space-between",
+          class = "flex-row"
         )
       ),
+      
+      
+      
+      # Matrix for SD 
+      # conditionalPanel(
+      #   condition = "input.outcome === 'Mean'",
+      #   matrixInput("matrix_sd",
+      #     rows = list(names = FALSE),
+      #     cols = list(names = TRUE),
+      #     class = "numeric",
+      #     value = {
+      #       k <- matrix(NA, 1, 2)
+      #       colnames(k) <- c("SD (Gr.1)", "SD (Gr.2)")
+      #       k
+      #     }
+      #   )
+      # ),
       hr(),
-      # Power and significance level inputs
+      
+      # Alternative
       fluidRow(
-        column(2, h5("Power")),
+        column(12, tags$h5("Power & Significance level (%)"), 
+               style = "padding-left: 0%;"),
         column(
-          4,
-          # Numeric input for power
-          numericInput("power", label = NULL, value = 0.8, step = 0.01, min = 0, max = 1)
+          6, 
+          numericInputIcon(
+            inputId = "power",
+            label = NULL,
+            help_text = "Must be between 0 and 100 (%)",
+            min = 0, max = 100, step = 5, value = 80,
+            icon = list("Power")
+          ),
+          style = "padding: 0.5%;"
         ),
-        column(2, h5("Sig.lvl")),
         column(
-          4,
-          # Numeric input for significance level
-          numericInput("alpha", label = NULL, value = 0.05, step = 0.01, min = 0, max = 1)
-        )
+          6, 
+          numericInputIcon(
+            inputId = "alpha",
+            label = NULL,
+            help_text = "Must be between 0 and 100 (%)",
+            min = 0, max = 100, step = 1, value = 5,
+            icon = list("Sig")
+          ),
+          style = "padding: 0.5%;"
+        ),
+        style = "margin: 0%;"
       ),
+      
+      
+      
 
       # Checkbox and input options for cluster design
       wellPanel(
@@ -162,7 +256,7 @@ ui <- fluidPage(
   fluidRow(
     style = "text-align: center; color: grey;",
     HTML(paste0(
-      "SampleSizer: because (Sample) size matters v0.1.3-alpha - learning how to code edition (very buggy!) <br> Update: ",Sys.Date()," | Created by ",
+      "SampleSizer: because (Sample) size matters v0.2.0-alpha - learning how to code edition (less buggy!) <br> Update: ",Sys.Date()," | Created by ",
       a("Songyos Rajborirug (Tony)", href = "https://github.com/Songyosr")
     ))
   )

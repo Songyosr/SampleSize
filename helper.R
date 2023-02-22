@@ -2,6 +2,7 @@ library(tidyverse)
 library(shiny)
 library(shinyMatrix)
 library(shinyvalidate)
+library(shinyWidgets)
 library(plotly)
 library(reactable)
 
@@ -49,6 +50,44 @@ check_point <- function(condition, msg = NULL, h = 1, n =1) {
   } 
 }
 # check_point(1,"print"); check_point(1,"subprint", 2);check_point(1)
+
+## Utility function
+# set limit ------
+set_limit <- function(outcome = "Mean", method = "direct"){
+  if(outcome == "Mean" | method == "oddsRatio"){
+    return(c('min' = -Inf, "max" = Inf))
+  } else if(method == "relative") {
+    return(c('min' = 0, "max" = Inf))
+  } else {
+    base <- c(-1*(method != "direct") ,1) 
+    times <- ifelse(outcome != "Incidence Rate", 1, Inf)
+    tmp <- base*times
+    tmp[is.nan(tmp)] <- 0
+    setNames(tmp, c('min', 'max'))
+  }
+}
+
+# set_icon -----
+# Function to set icon for each type of method
+set_icon <- function(method){
+  case_when(
+    method == "direct" ~ list(icon("people-group")),
+    method == "absolute" ~ list(icon("plus-minus")),
+    method == "relative" ~ list(icon("divide")),
+    TRUE ~ list(icon("question"))
+  )
+}
+
+# Example for set_* ----
+# mt <- c("direct", "absolute", "relative")
+# oc <- c("Mean", "Proportion", "Incidence Rate") 
+# test_dt <- expand_grid(mt, oc)
+# test_dt %>% rowwise() %>% 
+#   mutate(min_max = paste(set_limit(oc, mt), collapse = ","),
+#          icons = set_icon(mt))  %>%
+#   pivot_wider(names_from = oc, values_from =  c(min_max, icons))
+
+
 
 # SS_calculation2 ------
 # Function to calculate the sample size required
