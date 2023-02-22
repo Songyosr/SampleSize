@@ -5,10 +5,10 @@ account: songyosr
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 8353730
-bundleId: 6870890
+bundleId: 6873110
 url: https://songyosr.shinyapps.io/Sample_Size/
-when: 1677000386.59337
-lastSyncTime: 1677000386.59338
+when: 1677044289.89696
+lastSyncTime: 1677044289.89697
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: .RData|fig/example_v0.1.0_alpha.gif|LICENSE|README.html|README.md|tests/shinytest.R|del
+ignoredFiles: .RData|fig/example_v0.1.0_alpha.gif|LICENSE|README.html|README.md|tests/shinytest.R
