@@ -13,7 +13,7 @@ The SampleSizer app includes the following features:
 - A tidi-tidy bit of data validation
 - Validators to check input data range
 
-![SampleSizer in action](fig/example_v0.2.0_pre-alpha.gif)
+![SampleSizer in action](fig/example_v0.2.0_alpha.gif)
 
 ## Installation
 
