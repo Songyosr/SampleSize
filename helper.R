@@ -1,10 +1,13 @@
-library(tidyverse)
-library(shiny)
-library(shinyMatrix)
-library(shinyvalidate)
-library(shinyWidgets)
-library(plotly)
-library(reactable)
+# ---- Check for packages availability - Install & call them
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, shiny, shinyvalidate, shinyWidgets, plotly, reactable)
+
+# library(tidyverse)
+# library(shiny)
+# library(shinyvalidate)
+# library(shinyWidgets)
+# library(plotly)
+# library(reactable)
 
 # Helper function -----
 
@@ -22,20 +25,31 @@ library(reactable)
 
 # step_fun ------
 # Estimate the step size
-step_fun <- function(s) {
-  tmp <- (log(s, 10) + 1) |> floor()
-  10^(tmp - 2)
+step_fun <- function(s, dec = -1, num = 1) {
+  # Compute the nearest power of 10 that is less than or equal to s, with an
+  # optional decimal shift specified by dec. The default of -1 means that the
+  # decimal point is shifted one place to the left, i.e., 25 -> 2.0.
+  exponent <- floor(log10(s) + dec)
+  power_of_10 <- 10^exponent
+  
+  # Scale the power of 10 by the numeric multiplier num and return the result
+  step_size <- power_of_10 * num
+  step_size
 }
 
 # parse_x ------
 # parse X value variation from the slider input
 parse_x <- function(value, step_size, from = -2, to = 2) {
-  # Some clever code to parse X values from the slider input
-  from <- (from - value) / step_size
-  to <- (to - value) / step_size
-  k <- unique(c(value, value + seq(from = from, to = to) * step_size)) %>% na.omit()
-  k
+  # Compute the range of x values directly
+  x_range <- seq(from = from, to = to, by = step_size)
+  
+  # Compute the x values corresponding to the range and the current value
+  x_values <- c(value, x_range)
+  
+  # Return unique non-NA x values
+  unique(x_values[!is.na(x_values)])
 }
+
 
 # check_point -----
 # A helper function to check a given condition and print a message if the condition is true
@@ -171,7 +185,7 @@ df_prepare <- function(outcome = NA, method = NA, Ec = NA, Ei = NA,
   x_step_size <- (x_step_size)
   
   # Update x_step_range using the calculated x_step_size
-  arg_list[[aes_x_col]] <- x_step_range <- parse_x(arg_list[[aes_x_col]],
+  arg_list[[aes_x_col]]  <- parse_x(arg_list[[aes_x_col]],
                                                    step_size = x_step_size,
                                                    from = x_step_range[1], to = x_step_range[2]
   )
