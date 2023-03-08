@@ -1,5 +1,7 @@
-source("helper.R", local = T)
+# ---------
 
+source("helper.R", local = T)
+#print("server.R" %++% " Start")
 # Define server logic required for calculation
 server <- function(input, output, session) {
   # Input validation --------------------------------------------------------
@@ -7,65 +9,49 @@ server <- function(input, output, session) {
 
   # Global validator
   iv <- InputValidator$new()
-
   # Conditional validator
-  # Mean
   iv_m <- InputValidator$new()
   iv_m$condition(~ (input$outcome == "Mean"))
-  iv$add_validator(iv_m)
-
-  # Cluster design
-  iv_cluster <- InputValidator$new()
-  iv_cluster_hetero <- InputValidator$new()
-
-  iv_cluster$condition(~ (input$cluster))
-  iv_cluster_hetero$condition(~ (input$cv_type == "separate"))
-
-  iv_cluster$add_validator(iv_cluster_hetero)
+  
+  iv_mt_rel <- InputValidator$new()
+  iv_mt_rel$condition(~ (input$method == "relative"))
   # iv_p$condition(~ (input$outcome == "Proportion"))
-
+  # iv_in$condition(~ (input$outcome == "Incidence Rate"))
 
   ## Validator Rules ---------------------------------------------------------
 
   # Expected Matrix
-  iv$add_rule("Ei", sv_required())
-  iv$add_rule("Ec", sv_required())
+  iv$add_rule("matrix_e", sv_required())
+  iv$add_rule("matrix_e", sv_numeric(allow_multiple = TRUE))
+  # iv_mt_rel$add_rule("matrix_e", function(value) {
+  #   Ei <- value[1,2]
+  #   if (Ei < 0 || is.na(Ei)) {
+  #     "Ratio should be a non-negative number"
+  #   }
+  # })
 
-  # Power and alpha
-  iv$add_rule("power", sv_required())
-  iv$add_rule("alpha", sv_required())
-
-  # Cluster blobs
-  iv_cluster_hetero$add_rule("CVi", sv_gte(0))
-  iv_cluster$add_rule("CVc", sv_gte(0))
-  iv_cluster$add_rule("cluster_size", compose_rules(sv_integer(), sv_gte(0)))
-
-
+  # SD matrix
+  iv_m$add_rule("matrix_sd", sv_required())
+  iv_m$add_rule("matrix_sd", sv_numeric(allow_multiple = TRUE))
+  iv_m$add_rule("matrix_sd", sv_between(0, Inf))
 
   ## Enabling the validators ---------------------------------------------------
 
   iv$enable() # Global
-  # iv_m$enable() # under 'mean'
-  # iv_mt_rel$enable() # under 'Relative'
-  iv_cluster$enable() # under 'Relative'
-  # More to come
+  iv_m$enable() # under 'mean'
+  iv_mt_rel$enable() # under 'mean'
 
-  # Data storage declaration ---------------------------------------------------
+  # Static obj. declaration ----------------------------------------------------
 
-  ## Stationary Variables -----
   # Comparison method dictionary
   method_labels <- c(
     "direct" = "(Gr.2)",
-    "absolute" = "Diff",
+    "absolute" = "Difference",
     "relative" = "Ratio"
   )
+  # Reactive Part declaration ------------------------------------------------------
 
-  ## Reactive Variables ------
-
-  # Indicator for debugging mode
-  .i <- reactiveVal(F)
-
-  # Central data storage
+  ## Variables ---------------------------------------------------------------
   shared_val <- reactiveValues(
     # Choices for X and Color aesthetic selection
     labels = c(
@@ -79,130 +65,92 @@ server <- function(input, output, session) {
       "Significance Level" = "alpha",
       "Power" = "power"
     ),
+
     # Baseline wording for sample size
     sample_label = c("Sample Size (n)" = "c"),
+    #check = F,
     # Value for focus val
-    focus_val = 0
+    focus_val = 0 
   )
 
+  # Indicator for debugging mode
+  .i <- reactiveVal(F)
+  
+  
 
+  ## Functions ----------------------------------------------------------------
 
-  # Reactive Functions ---------------------------------------------------------
+  ### Update Sample Size labels -------
+  # updates the sample label based on the value of the "cluster" input.
+  updateSampleLabel <- reactive({
+    # Print a debugging message to the console
+    check_point(.i(), "\nupdateSampleLabel: Checking..")
 
-  ## Debugging mode activation ------
-  # Activate/deactivate the debugging mode status based on the 'check' input
-  observeEvent(input$check, .i(input$check))
-
-  ## UI updating group ---------------------------------------------------------
-
-  ### Update [method] choices -----
-  # Define an observe function to update the 'method' radio button choices when the outcome changes
-  observeEvent(input$outcome, {
-    # Checkpoint before making changes
-    check_point(.i(), "updateMethodChoice", 1, 2)
-
-    # Update choices for the radio button based on selected outcome
-    if (input$outcome == "Mean") {
-      # Test
-      updateRadioGroupButtons(session,
-        inputId = "method",
-        choices = c(
-          "Group 2" = "direct",
-          "Difference" = "absolute"
-        ),
-      )
+    # If the 'cluster' checkbox is checked, update the sample label to reflect that we're calculating the number of clusters per arm
+    if (input$cluster == T) {
+      shared_val$sample_label <- c("Number of Clusters (per arm)" = "c")
     } else {
-      # Test
-      updateRadioGroupButtons(session,
-        inputId = "method",
-        choices = c(
-          "Group 2" = "direct",
-          "Difference" = "absolute",
-          "Ratio" = "relative"
-        ),
-      )
+      # Otherwise, update the sample label to reflect that we're calculating the sample size per arm
+      shared_val$sample_label <- c("Sample Size (per arm)" = "c")
     }
 
-    # Checkpoint after making changes
+    # Print a debugging message to the console indicating that the update is complete
     check_point(.i())
   })
-
-  ### Cascading updates: Update expected value labels, matrix column names, and display choices ----
-  #### Update expected values label [Ei, Ec] ----
-  # Reactive function to update labels based on input$outcome and input$method
+  # Observe and implement
+  observeEvent(input$cluster, updateSampleLabel())
+  
+  
+  ### Update Expected value Labels -----
+  # Update labels based on input$outcome and input$method
   updateExpectedValuesLabel <- reactive({
-    # Checkpoint before making changes
-    check_point(.i(), "Update Expected valueLabels", 1, 2)
-
-    # Get input values
+    #.i <- shared_val$check
+    check_point(.i(), "\nUpdate Expected value Labels Reactive function: ..")
+    # print(shared_val$labels)
     outcome <- input$outcome
     method <- method_labels[input$method]
     labels <- shared_val$labels
 
-    # Update the labels
     names(labels)[1:2] <- c(
       paste(outcome, "(Gr.1)"),
       paste(outcome, method)
     )
 
-    # Save the updated labels
     shared_val$labels <- labels
 
-    # Checkpoint after making changes
     check_point(.i())
   })
-  
-  #--- Render UI for Data imput  ----
-  # Need to do this because the updateNumericInputIcon fails to update label
-  # We will add the issue to thier page later
 
-  updateUIdataInput <- reactive({
-    output$input_container <- renderUI({
-      outcome <- input$outcome
-      method <- input$method
+  ### Update Matrix column name -----
+  # Reactive function to update matrix column names
+  updateMatrixColNames <- reactive({
+    # Get current check point index
+    # Get input values
+    matrix_e <- input$matrix_e
+    #.i <- shared_val$check
 
-      Ei <- isolate(input$Ei) %||% 0
-      Ec <- isolate(input$Ec) %||% 0
-      # Get limits and icon
-      labels <- names(shared_val$labels[1:2])
-      min_max_Ec <- set_limit(outcome, "direct") |> unname()
-      min_max_Ei <- set_limit(outcome, method) |> unname()
-      icons <- set_icon(method)
+    # Check current status of the function
+    check_point(.i(), "\nupdateMatrixColNames: Checking..")
 
-      fluidRow(
-        column(6,
-          numericInputIcon(
-            inputId = "Ec",
-            label = labels[1],
-            help_text = "Out of range!",
-            value = Ec,
-            min = min_max_Ec[1], max = min_max_Ec[2], step = 0.1,
-            icon = icon("people-group")
-          ),
-          style = "padding:0.5%;"
-        ),
-        column(6,
-          numericInputIcon(
-            inputId = "Ei",
-            label = labels[2],
-            help_text = "Out of range!",
-            value = Ei,
-            min = min_max_Ei[1], max = min_max_Ei[2], step = 0.1,
-            icon = icons
-          ),
-          style = "padding:0.5%;"
-        ),
-        style = "margin:0%; justify-content: space-between",
-        class = "flex-row"
-      )
-    })
+    # Update column names
+    # print("internal: Matrix")
+    # print(coln)
+    colnames(matrix_e) <- names(shared_val$labels[1:2])
+
+    updateMatrixInput(session, "matrix_e",
+      value = matrix_e
+    )
+    check_point(.i())
   })
 
-  #### Update choice for aesthetic X and color ----
-  # Reactive function to update display choices
+  ### Update Choice for aesthetic X and color ----
+  # Reactive function to update the display choices
   updateDisplayChoices <- reactive({
+    # Get current check point index
+
+
     # Check current status of the function
-    check_point(.i(), "updateDisplayChoices", 2)
+    check_point(.i(), "\nupdateDisplayChoices reactive function: Checking..")
 
     # Get input values
     outcome <- input$outcome
@@ -232,52 +180,43 @@ server <- function(input, output, session) {
     check_point(.i())
   })
 
-  #### Observe changes for expected value, matrix, and display choice ----
+  # Observe and implement for expected value/Matrix/Displaychoice
+ 
   observeEvent(c(input$outcome, input$method), {
     updateExpectedValuesLabel()
-    updateUIdataInput()
-    # updateMatrixColNames()
-    # updateDataLabel()
+    updateMatrixColNames()
     updateDisplayChoices()
   })
+  
   observeEvent(c(input$x_aes, input$cluster), updateDisplayChoices())
 
 
 
-  ### Update Sample Size labels -------
-  # updates the sample label based on the value of the "cluster" input.
-  updateSampleLabel <- reactive({
-    # Print a debugging message to the console
-    check_point(.i(), "updateSampleLabel", 1, 2)
-
-    # If the 'cluster' checkbox is checked, update the sample label to reflect that we're calculating the number of clusters per arm
-    if (input$cluster == T) {
-      shared_val$sample_label <- c("Number of Clusters (per arm)" = "c")
-    } else {
-      # Otherwise, update the sample label to reflect that we're calculating the sample size per arm
-      shared_val$sample_label <- c("Sample Size (per arm)" = "c")
-    }
-
-    # Print a debugging message to the console indicating that the update is complete
-    check_point(.i())
-  })
-  # Observe and implement
-  observeEvent(input$cluster, updateSampleLabel())
-
-
-
-
-
-
-
-
+  # updates the debugging mode status based on the 'check' input
+  # observeEvent(input$check, {
+  #   # shared_val$check <- input$check
+  #   print(input$check)
+  #   k <- input$check
+  # 
+  #   .i(k)
+  # })
+  # observe(cat("Hello: ",.i()," \n"))
+  
   ### Update Step size ----
   observeEvent(c(input[[input$x_aes]], input$matrix_e, input$matrix_sd), {
-    check_point(.i(), "ObserveEvent StepSize", 1, 2)
+    check_point(.i(), "\nObserveEvent StepSize : Checking..")
 
     x_aes <- input$x_aes
     # print(shared_val$focus_val)
-    k <- as.numeric(input[[input$x_aes]]) 
+    k <- ifelse(x_aes == "Ec", input$matrix_e[, 1],
+      ifelse(x_aes == "Ei", input$matrix_e[, 2],
+        ifelse(x_aes == "SDc", input$matrix_sd[, 1],
+          ifelse(x_aes == "SDi", input$matrix_sd[, 2],
+            as.numeric(input[[input$x_aes]])
+          )
+        )
+      )
+    )
 
 
     step_size <- step_fun(k)
@@ -291,7 +230,7 @@ server <- function(input, output, session) {
   observeEvent(c(shared_val$focus_val, input$x_step_size), {
     # Debugging
 
-    check_point(.i(), "SliderUpdating", 1, 2)
+    check_point(.i(), "\nCalculate Sample Size Reactive function: ..")
 
     x_aes <- input$x_aes
     # print(shared_val$focus_val)
@@ -313,27 +252,55 @@ server <- function(input, output, session) {
     check_point(.i())
   })
 
-  ### SampleSize Calculation Cascade ----
+
+  # Define reactive function for rendering method input options based on selected outcome
+  output$method_input <- renderUI({
+    outcome <- input$outcome
+    method_choices <- list("Group 2" = "direct", "Absolute Difference" = "absolute")
+    if (outcome != "Mean") {
+      method_choices[["Relative Difference"]] <- "relative"
+    }
+    radioButtons("method",
+      label = "Select Comparison Input:",
+      choices = method_choices, selected = "direct"
+    )
+  })
+
+
+
   # Define reactive function for calculating the sample size
   calculateSampleSize <- reactive({
-    check_point(.i(), "Calculate Sample Size", 1, 2)
+    # check <- input$check
+
+
+    check_point(.i(), "\nCalculate Sample Size Reactive function: ..")
+
+
+    # validate(
+    #   # Check blank input
+    #   need(anyNA(input$matrix_e), "Group 1 and Group 2 data")#,
+    #   #need(anyNA(input$matrix_SD) & input$outcome == "Mean", "Both SD")
+    #
+    #   # if cluster
+    #
+    # )
 
     # Extract input values
-    check_point(.i(), "Data extraction", 2)
+    check_point(.i(), "\n\tData extract: Checking..")
     # if(input$check == T) cat("\n\tData extract: Checking..")
     outcome <- input$outcome
     method <- input$method
 
-    Ec <- as.numeric(input$Ec) # matrix_e[, 1])
-    Ei <- as.numeric(input$Ei) # matrix_e[, 2])
-    SDc <- as.numeric(input$SDc)#matrix_sd[, 1])
-    SDi <- as.numeric(input$SDi)#matrix_sd[, 2])
+    Ec <- as.numeric(input$matrix_e[, 1])
+    Ei <- as.numeric(input$matrix_e[, 2])
+    SDc <- as.numeric(input$matrix_sd[, 1])
+    SDi <- as.numeric(input$matrix_sd[, 2])
     CVc <- as.numeric(input$CVc) # / 100
     CVi <- as.numeric(input$CVi) # / 100
     cluster <- input$cluster
     cluster_size <- ifelse(input$cluster, input$cluster_size, NA)
-    alpha <- input$alpha / 100
-    power <- input$power / 100
+    alpha <- input$alpha
+    power <- input$power
     check <- F # input$ckeckbox
     x_aes <- input$x_aes
     x_step_size <- input$x_step_size
@@ -342,12 +309,16 @@ server <- function(input, output, session) {
     col_var <- as.numeric(input$col_var)
     labels <- shared_val$labels
     sample_label <- shared_val$sample_label
+    # --------------------------------
+    # cat(sample_label)
 
     # Check
     check_point(.i())
+    # if(input$check == T) cat("okay!")
 
+    # -----
     # Data.frame result
-    check_point(.i(), "Building DF", 2)
+    check_point(.i(), "\n\tDF computed: Checking..")
     # if(input$check == T) cat("\n\tDF computed: Checking..")
 
     df_output <- df_prepare(
@@ -374,12 +345,14 @@ server <- function(input, output, session) {
       arrange(!!sym(x_aes), !!sym(color_aes)) %>%
       group_by(!!sym(color_aes))
 
+    # cat("Calculate_afterDf")
     # Check
     check_point(.i())
+    # if(input$check == T) cat("okay!")
 
     # Check
-    check_point(.i(), "Generating Plot", 2)
-
+    check_point(.i(), "\n\tPlot generate: Checking..")
+    # if(input$check == T) cat("\n\tPlot generate: Checking..")
     plot_output <-
       df_output %>%
       mutate(text_hover = paste0(
@@ -401,7 +374,13 @@ server <- function(input, output, session) {
         marker = list(opacity = 0.8, size = 6),
         hoverinfo = "text",
         text = ~text_hover
+        #   paste0(
+        #   names(labels[labels == x_aes]), ": ", !!x_aes,
+        #   "<br>", names(labels[labels == color_aes]), ": ", df_output[[color_aes]],
+        #   "<br><b>", names(sample_label), ": ", c, "</b>"
+        # )
       ) %>%
+      # add_lines() %>%
       layout(
         xaxis = list(title = names(labels[labels == x_aes])),
         yaxis = list(title = names(sample_label)),
@@ -412,29 +391,34 @@ server <- function(input, output, session) {
     check_point(.i())
     # if(input$check == T) cat("okay!")
 
-    # Estimate sample for cluster design
+    # Check
+    check_point(.i(), "\n\tSelect relevant column: Checking..")
+    # if(input$check == T) cat("\n\tSelect relevant column: Checking..")
+
     if (cluster) {
       df_output <- df_output %>%
         mutate(N = cluster_size * c)
     }
-
-    # Check
-    check_point(.i(), "Remove NA columns", 2)
-
     df_output <- df_output %>%
       select(any_of(c(labels, sample_label, "Total Pop (per arm)" = "N")))
 
+    # cat("Calculate_afterDf2")
+    # print(color_aes))
+    # print(!!sym(color_aes))
+    # Check
     check_point(.i())
-
+    # if(input$check == T) cat("okay!")
 
     # Check
-    check_point(.i(), "Producing a reactable", 2)
-
+    check_point(.i(), "\n\tReactable computed: Checking..")
+    # if(input$check == T) cat("\n\tReactable computed: Checking..")
     # Change it to reactable
     df_output_rt <- reactable(
       df_output,
       defaultPageSize = 5,
       defaultColDef = colDef(
+        # header = function(value) gsub(".", " ", value, fixed = TRUE),
+        # cell = function(value) format(value, nsmall = 1),
         align = "center",
         minWidth = 70,
         headerStyle = list(background = "#f7f7f8")
@@ -442,23 +426,44 @@ server <- function(input, output, session) {
       bordered = TRUE,
       highlight = TRUE
     )
+
+    # Identify the column labels
     # Check
     check_point(.i())
+    # if(input$check == T) cat("okay!")
 
-    # output
+    # Check
+    # check_point(.i(), "\n\tParseing output: Checking..")
+    # if(input$check == T) cat("\n\tParseing output: Checking..")
     lst( # text_output,
-      df_output,
+      df_output, # %>% select(any_of(c(labels, sample_label = "c"))),
       df_output_rt,
       plot_output
     )
   })
 
-  #### Call the calculateSampleSize function when the Calculate button is clicked -----
+  # Call the calculateSampleSize function when the Calculate button is clicked
   observeEvent(input$calculate, {
     # check_point(shared_val$check, "\nBefore validate.... \n")
     req(iv$is_valid())
-    req(iv_cluster$is_valid())
+    req(iv_m$is_valid())
+    req(iv_mt_rel$is_valid())
+    # req(iv_in$is_valid())
+    # Validate data
+    # validate(
+    #   # Check blank input
+    #   need(anyNA(input$matrix_e), "Group 1 and Group 2 data")#,
+    #   #need(anyNA(input$matrix_SD) & input$outcome == "Mean", "Both SD")
+    #
+    #   # if cluster
+    #
+    # )
+
     out <- calculateSampleSize()
+    # check_point(shared_val$check, "\nAfter validate \n")
+    # check_point(shared_val$check, "Pass!\n\n") #cat("okay!\n\n")
+    # Render the calculated result
+    # output$text <- renderPrint(out$text_output)
 
     # Render the data frame
     output$data_frame <- renderReactable(out$df_output_rt)
@@ -484,3 +489,4 @@ server <- function(input, output, session) {
     }
   )
 }
+# print("server.R" %++% " End")
